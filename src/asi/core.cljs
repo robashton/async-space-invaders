@@ -14,39 +14,48 @@
   (set! (. ctx -fillStyle) c)
   (.fillRect ctx x y w h))
 
-(defprotocol Entity
-  (tick [this])
-  (render [this ctx]))
+(defn enemy-action [state action]
+  (case (:cmd action)
+    :render (do (fill-rect (:ctx action) state "#FF0") state)
+    :tick state))
 
-(defrecord Enemy [commands x y w h]
-  Entity
-  (render [this ctx] (fill-rect ctx this "#FF0"))
-  (tick [this] this))
+(defn player-action [state action]
+  (case (:cmd action)
+    :render (do (fill-rect (:ctx action) state "#F00") state)
+    :tick state))
 
-(defrecord Player [commands x y w h]
-  Entity
-  (render [this ctx] (fill-rect ctx this "#F00"))
-  (tick [this] this))
+(defn enemy [out x y w h]
+ (let [in (chan)]
+   (go (loop [state {:x x :y y :w w :h h}]
+        (recur (enemy-action state (<! in)))))
+   in))
+
+(defn player [out x y w h]
+ (let [in (chan)]
+   (go (loop [state {:x x :y y :w w :h h}]
+        (recur (player-action state (<! in)))))
+   in))
 
 (defn initial-state
-  [commands ctx]
-  { :entities (for [x (range 0 480 60)
+  [out ctx]
+  { :entities (conj
+                (for [x (range 0 480 60)
                     y (range 0 240 60)]
-                (Enemy. commands x y 20 20))
-   :ctx ctx }) 
+                  (enemy out x y 20 20))
+                (player out 200 430 20 20))
+    :ctx ctx }) 
 
 (defn game-action 
   [state action]
   (case action
-    :tick (update-in state [:entities] #(map tick %1))
-    :render (do
-              (doseq [e (:entities state)] (render e (:ctx state)))
-              state)))
+    :tick (doseq [e (:entities state)] (put! e { :cmd :tick}))
+    :render (doseq [e (:entities state)] (put! e { :cmd :render :ctx (:ctx state)}))))
 
 (defn game
   [in ctx]
   (go (loop [state (initial-state in ctx)] 
-        (recur (game-action state (<! in))))))
+        (game-action state (<! in))
+        (recur state))))
 
 (defn start 
   []
