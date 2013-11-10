@@ -31,7 +31,8 @@
 
 (defn enemy [x y w h]
   (-> (entity (str "enemy" x y) (rect x y w h) "#FF0")
-    (assoc :type :enemy)))
+    (assoc :type :enemy)
+    (assoc :velx 1)))
 
 (defn player [x y w h]
   (-> (entity :player (rect x y w h) "#F00")
@@ -49,11 +50,6 @@
 (defn player-halt [scene]
   (assoc-in scene [:entities :player :velx] 0))
 
-(defn enemy-direction [direction {:keys [entities] :as scene}]
-  (assoc scene :entities 
-      (into entities (for [[i e] (filter enemy? entities)] 
-                       (assoc e :velx direction)))))
-
 (defn initial-enemies []
   (for [x (range 0 480 60) y (range 0 240 60)]
                              (enemy x y 20 20)))
@@ -63,8 +59,18 @@
                 (for [e (conj (initial-enemies)
                         (player 200 430 20 20))] [(:id e) e])) })
 
+(defn check-enemy-directions [{:keys [entities] scene}]
+  (let [enemies (filter enemy? (map val entities))
+        minx (left-most enemies)
+        maxs (right-most enemies)]
+
+
+    ))
+
 (defn tick [{:keys [entities] :as scene}]
-  (assoc scene :entities (into entities (for [[i e] entities] [i (apply-physics e)]))))
+  (-> scene 
+    (assoc :entities (into entities (for [[i e] entities] [i (apply-physics e)])))
+    (check-enemy-directions)))
 
 (defn render [ctx {:keys [entities]}]
   (clear ctx)
