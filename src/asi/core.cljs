@@ -74,7 +74,8 @@
 
 (defn initial-scene []
   (into {} (for [e (conj (initial-enemies)
-                         (player 200 430 20 20))] [(:id e) e])) )
+                         (player 200 430 20 20))] [(:id e) e]))
+                         (firing-guard))
 
 (defn min-enemy-left [enemies]
   (apply min (map :x enemies)))
