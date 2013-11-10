@@ -3,6 +3,7 @@
   (:require-macros [cljs.core.async.macros :as m :refer [go alt!]]))
 
 (def comms (chan))
+(def firing-rate 15)
 
 (defn context 
   [width height]
@@ -40,7 +41,8 @@
 (defn player [x y w h]
   (entity :player 
           :x x :y y :w w :h h :color "#F00"
-          :type :player))
+          :type :player
+          :firing-ticks 0))
 
 (defn bullet [x y w h]
   (entity (str "bullet" (rand))
@@ -68,10 +70,11 @@
 (defn player-halt [entities]
   (assoc-in entities [:player :velx] 0))
 
-(defn player-fire [entities]
-  (add-entity entities
-    (let [{:keys [x y]} (entities :player)] 
-      (bullet x y 5 5))))
+(defn player-fire [{:keys [player] :as entities}]
+  (if (= 0 (:firing-ticks player)) 
+    (-> entities (add-entity (let [{:keys [x y]} player] (bullet x y 5 5)))
+      (update-in [:player :firing-ticks] inc))
+   entities i))
 
 (defn initial-enemies []
   (for [x (range 0 480 60) y (range 0 240 60)]
@@ -103,17 +106,15 @@
     (update-in [:y] (partial + 10))))
 
 (defn collisions-in [entities]
-  (filter 
-      boolean
-      (for [[_ one] entities
-            [_ two] entities]
-           (cond
-             (= one two) nil
-             (< (rect-right one) (:x two)) nil
-             (> (:x one) (rect-right two)) nil
-             (< (rect-bottom one) (:y two)) nil
-             (> (:y one) (rect-bottom two)) nil
-             :else [one two])))) 
+  (filter boolean
+    (for [[_ one] entities [_ two] entities]
+      (cond
+        (= one two) nil
+        (< (rect-right one) (:x two)) nil
+        (> (:x one) (rect-right two)) nil
+        (< (rect-bottom one) (:y two)) nil
+        (> (:y one) (rect-bottom two)) nil
+        :else [one two])))) 
 
 (defn check-collisions [entities]
   (doseq [[one two] (collisions-in entities)]
@@ -128,12 +129,21 @@
     (into entities (for [[i e] entities] [i (next-enemy-level e)])) 
     entities))
 
+(defn check-firing-ticks [entities]
+  (let [firing-ticks (get-in entities [:player :firing-ticks])] 
+    (if (= firing-ticks 0) 
+      entities
+      (if (= (rem firing-ticks firing-rate) 0)
+        (assoc-in entities [:player :firing-ticks] 0)
+        (update-in entities [:player :firing-ticks] inc)))))
+
 (defn tick [entities]
   entities
   (-> entities 
     (into (for [[i e] entities] [i (apply-physics e)])) 
     (check-enemy-directions)
-    (check-collisions)))
+    (check-collisions)
+    (check-firing-ticks)))
 
 (defn render [ctx entities]
   (clear ctx)
