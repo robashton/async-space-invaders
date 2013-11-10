@@ -60,3 +60,6 @@ exit
 (reduce (fn [i s] (println s)) [ [ "1" "2" ] ["3" "4"] [ "5" "6" ] ])
 (reduce (fn [i s] (println s)) nil [ [ "1" "2" ] ["3" "4"] [ "5" "6" ] ])
 (doc doall)
+(doc reduce)
+(doc some)
+(* 36 36)

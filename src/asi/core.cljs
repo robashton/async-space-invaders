@@ -124,7 +124,7 @@
     (update-in [:y] (partial + 10))))
 
 (defn collisions-in [entities]
-  ((filter boolean
+  (filter boolean
     (for [[_ one] entities [_ two] entities]
       (cond
         (= one two) nil
@@ -132,14 +132,14 @@
         (> (:x one) (rect-right two)) nil
         (< (rect-bottom one) (:y two)) nil
         (> (:y one) (rect-bottom two)) nil
-        :else [one two]))))) 
+        :else [one two])))) 
 
 (defn check-collisions [entities]
-;  (doseq [[one two] (collisions-in entities)]
-;      (case [(:type one) (:type two)]
-;        [:bullet :enemy] (put! comms (partial destroy-enemy (:id two)))
-;        [:enemy :bullet] (put! comms (partial destroy-bullet (:id two)))
-;        nil))
+  (doseq [[one two] (collisions-in entities)]
+      (case [(:type one) (:type two)]
+        [:bullet :enemy] (put! comms (partial destroy-enemy (:id two)))
+        [:enemy :bullet] (put! comms (partial destroy-bullet (:id two)))
+        nil))
   entities)
 
 (defn check-enemy-directions [entities]
