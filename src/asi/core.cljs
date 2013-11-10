@@ -25,27 +25,41 @@
   (-> rect
     (assoc :color color)
     (assoc :id id)))
-
-(defn apply-physics [entity]
-  (update-in entity [:x] #(+ %1 (:velx entity))))
-
 (defn enemy [x y w h]
   (-> (entity (str "enemy" x y) (rect x y w h) "#FF0")
     (assoc :type :enemy)
     (assoc :velx 1)))
-
 (defn player [x y w h]
   (-> (entity :player (rect x y w h) "#F00")
    (assoc :type :player)))
+(defn bullet [x y w h]
+  (-> (entity (str "bullet" (rand)) (rect x y w h) "#000")
+    (assoc :type :bullet)
+    (assoc :vely -5)))
+
+(defn apply-physics [entity]
+  (-> entity
+    (update-in [:x] #(+ %1 (:velx entity)))
+    (update-in [:y] #(+ %1 (:vely entity)))))
+
+(defn add-entity [scene e]
+  (assoc-in scene [:entities (:id e)] e))
 
 (defn player? [e] (= :player (:type e)))
 (defn enemy? [e] (= :enemy (:type e)))
+(defn bullet? [e] (= :bullet (:type e)))
 
 (defn player-left [scene]
   (assoc-in scene [:entities :player :velx] -1))
 
 (defn player-right [scene]
   (assoc-in scene [:entities :player :velx] 1))
+
+(defn player-fire [scene]
+  (add-entity 
+    scene
+    (let [{:keys [x y]} (get-in scene [:entities :player])] 
+      (bullet x y 5 5))))
 
 (defn player-halt [scene]
   (assoc-in scene [:entities :player :velx] 0))
@@ -70,7 +84,9 @@
       (>= 0 (min-enemy-left enemies))))
 
 (defn next-enemy-level [e]
-  (update-in e [:velx] (partial - 0)))
+  (-> e
+    (update-in [:velx] (partial - 0))
+    (update-in [:y] (partial + 10))))
 
 (defn check-enemy-directions [{:keys [entities] :as scene}]
   (if (enemies-at-border (filter enemy? (map val entities)))
@@ -95,6 +111,7 @@
   (case (. e -keyCode)
     37 (put! comms player-left)
     39 (put! comms player-right)
+    32 (put! comms player-fire)
     nil))
 
 (defn on-key-up [e]
