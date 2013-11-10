@@ -49,10 +49,25 @@
           :x x :y y :w w :h h :color "#000"
           :type :bullet :vely -5))
 
-(defn apply-physics [entity]
+(defn explosion [id x y]
+  (entity (str "explosion" id)
+          :x x :y y
+          :type :bullet :vely -5
+          :tick explosion-tick
+          :draw explosion-draw))
+
+(defmulti tick (fn [e] (if (:tick e) :custom :default)))
+(defmethod tick :custom [entity] ((:tick entity) entity))
+(defmethod tick :default [entity]
   (-> entity
     (update-in [:x] #(+ %1 (:velx entity)))
     (update-in [:y] #(+ %1 (:vely entity)))))
+
+(defmulti draw (fn [ctx e] (if (:draw e) :custom :default)))
+(defmethod draw :custom [ctx entity] ((:draw entity) ctx entity))
+(defmethod draw :default [ctx {:keys [x y w h color]}]
+  (set! (. ctx -fillStyle) color)
+  (.fillRect ctx x y w h color))
 
 (defn add-entity [entities e]
   (assoc entities (:id e) e))
@@ -62,10 +77,10 @@
 (defn bullet? [e] (= :bullet (:type e)))
 
 (defn player-left [entities]
-  (assoc-in entities [:player :velx] -1))
+  (assoc-in entities [:player :velx] -3))
 
 (defn player-right [entities]
-  (assoc-in entities [:player :velx] 1))
+  (assoc-in entities [:player :velx] 3))
 
 (defn player-halt [entities]
   (assoc-in entities [:player :velx] 0))
@@ -95,7 +110,10 @@
       (>= 0 (min-enemy-left enemies))))
 
 (defn destroy-enemy [id entities]
-  (dissoc entities id))
+  (let [enemy (entities id)] 
+    (-> entities
+      (dissoc id)
+      (add-entity (explosion id (:x enemy) (:y enemy))))))
 
 (defn destroy-bullet [id entities]
   (dissoc entities id))
@@ -106,7 +124,7 @@
     (update-in [:y] (partial + 10))))
 
 (defn collisions-in [entities]
-  (filter boolean
+  ((filter boolean
     (for [[_ one] entities [_ two] entities]
       (cond
         (= one two) nil
@@ -114,14 +132,14 @@
         (> (:x one) (rect-right two)) nil
         (< (rect-bottom one) (:y two)) nil
         (> (:y one) (rect-bottom two)) nil
-        :else [one two])))) 
+        :else [one two]))))) 
 
 (defn check-collisions [entities]
-  (doseq [[one two] (collisions-in entities)]
-      (case [(:type one) (:type two)]
-        [:bullet :enemy] (put! comms (partial destroy-enemy (:id two)))
-        [:enemy :bullet] (put! comms (partial destroy-bullet (:id two)))
-        nil))
+;  (doseq [[one two] (collisions-in entities)]
+;      (case [(:type one) (:type two)]
+;        [:bullet :enemy] (put! comms (partial destroy-enemy (:id two)))
+;        [:enemy :bullet] (put! comms (partial destroy-bullet (:id two)))
+;        nil))
   entities)
 
 (defn check-enemy-directions [entities]
@@ -137,17 +155,17 @@
         (assoc-in entities [:player :firing-ticks] 0)
         (update-in entities [:player :firing-ticks] inc)))))
 
-(defn tick [entities]
+(defn scene-logic [entities]
   entities
   (-> entities 
-    (into (for [[i e] entities] [i (apply-physics e)])) 
+    (into (for [[i e] entities] [i (tick e)])) 
     (check-enemy-directions)
     (check-collisions)
     (check-firing-ticks)))
 
 (defn render [ctx entities]
   (clear ctx)
-  (doseq [e (filter :render (map val entities))] (draw-entity ctx e)))
+  (doseq [e (filter :render (map val entities))] (draw ctx e)))
 
 (defn game []
   (go 
@@ -176,7 +194,7 @@
   (let [ctx (context 640 480)
         instance (game)]
    (hook-input-events)
-   (js/setInterval #(put! comms tick) (/ 1000.0 30.0)) 
+   (js/setInterval #(put! comms scene-logic) (/ 1000.0 30.0)) 
    (js/setInterval #(put! comms (partial render ctx)) (/ 1000.0 30.0))))
 
 (start)
