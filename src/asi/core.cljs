@@ -2,6 +2,8 @@
   (:require [cljs.core.async :as async :refer [<! >! chan put!]])
   (:require-macros [cljs.core.async.macros :as m :refer [go alt!]]))
 
+(def comms (chan))
+
 (defn context 
   [width height]
   (let [target (.getElementById js/document "target")]
@@ -28,12 +30,12 @@
   (update-in entity [:x] #(+ %1 (:velx entity))))
 
 (defn enemy [x y w h]
-  (-> (entity (str "enemy" x y) (rect x y w h) "#FF0"))
-    (assoc :type :enemy))
+  (-> (entity (str "enemy" x y) (rect x y w h) "#FF0")
+    (assoc :type :enemy)))
 
 (defn player [x y w h]
-  (-> (entity :player (rect x y w h) "#F00"))
-  (assoc :type :player))
+  (-> (entity :player (rect x y w h) "#F00")
+   (assoc :type :player)))
 
 (defn player? [e] (= :player (:type e)))
 (defn enemy? [e] (= :enemy (:type e)))
@@ -52,12 +54,13 @@
       (into entities (for [[i e] (filter enemy? entities)] 
                        (assoc e :velx direction)))))
 
-(defn initial-scene
-  [out ctx]
+(defn initial-enemies []
+  (for [x (range 0 480 60) y (range 0 240 60)]
+                             (enemy x y 20 20)))
+
+(defn initial-scene []
   { :entities (into {} 
-                (for [e 
-                  (conj (for [x (range 0 480 60) y (range 0 240 60)]
-                             (enemy x y 20 20))
+                (for [e (conj (initial-enemies)
                         (player 200 430 20 20))] [(:id e) e])) })
 
 (defn tick [{:keys [entities] :as scene}]
@@ -67,36 +70,32 @@
   (clear ctx)
   (doseq [e (map val entities)] (draw-entity ctx e)))
 
-(defn game
-  [in ctx]
-  (go (loop [scene (initial-scene in ctx)] 
-        (if-let [action (<! in)]
+(defn game []
+  (go (loop [scene (initial-scene)]
+        (if-let [action (<! comms)]
           (recur (or (action scene) scene))))))
 
-(defn on-key-down [commands]
-  (fn [e] 
-    (case (. e -keyCode)
-      37 (put! commands player-left)
-      39 (put! commands player-right)
-      nil)))
+(defn on-key-down [e]
+  (case (. e -keyCode)
+    37 (put! comms player-left)
+    39 (put! comms player-right)
+    nil))
 
-(defn on-key-up [commands]
-  (fn [e] 
-    (case (. e -keyCode)
-      37 (put! commands player-halt)
-      39 (put! commands player-halt)
-      nil)))
+(defn on-key-up [e]
+  (case (. e -keyCode)
+    37 (put! comms player-halt)
+    39 (put! comms player-halt)
+    nil))
 
-(defn hook-input-events [commands]
-  (.addEventListener js/document "keydown" (on-key-down commands))
-  (.addEventListener js/document "keyup" (on-key-up commands)))
+(defn hook-input-events []
+  (.addEventListener js/document "keydown" on-key-down)
+  (.addEventListener js/document "keyup" on-key-up))
 
 (defn start []
   (let [ctx (context 640 480)
-        commands (chan)
-        instance (game commands ctx)]
-   (hook-input-events commands)
-   (js/setInterval #(put! commands tick) (/ 1000.0 30.0)) 
-   (js/setInterval #(put! commands (partial render ctx)) (/ 1000.0 30.0))))
+        instance (game)]
+   (hook-input-events)
+   (js/setInterval #(put! comms tick) (/ 1000.0 30.0)) 
+   (js/setInterval #(put! comms (partial render ctx)) (/ 1000.0 30.0))))
 
 (start)
