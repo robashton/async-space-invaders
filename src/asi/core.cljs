@@ -123,23 +123,35 @@
     (update-in [:velx] (partial - 0))
     (update-in [:y] (partial + 10))))
 
-(defn collisions-in [entities]
-  (filter boolean
-    (for [[_ one] entities [_ two] entities]
-      (cond
-        (= one two) nil
-        (< (rect-right one) (:x two)) nil
-        (> (:x one) (rect-right two)) nil
-        (< (rect-bottom one) (:y two)) nil
-        (> (:y one) (rect-bottom two)) nil
-        :else [one two])))) 
+(defn collides [one two]
+  (cond
+    (= one two) nil
+    (< (rect-right one) (:x two)) nil
+    (> (:x one) (rect-right two)) nil
+    (< (rect-bottom one) (:y two)) nil 
+    (> (:y one) (rect-bottom two)) nil
+    :else two))
 
-(defn check-collisions [entities]
-  (doseq [[one two] (collisions-in entities)]
-      (case [(:type one) (:type two)]
+(defn collide-with [i one others]
+  (if-let [collision (some #(collides one %1) (drop i others))]
+    (do
+      [one collision])
+    nil))
+
+(defn collisions-in [entities]
+  (doall (filter boolean (map-indexed #(collide-with %1 %2 entities) entities))))
+
+(defn handle-collision [one two]
+ (case [(:type one) (:type two)]
         [:bullet :enemy] (put! comms (partial destroy-enemy (:id two)))
         [:enemy :bullet] (put! comms (partial destroy-bullet (:id two)))
         nil))
+
+(defn check-collisions [entities]
+  (doseq [[one two] (collisions-in (map val entities))]
+    (do
+      (handle-collision one two)
+      (handle-collision two one)))
   entities)
 
 (defn check-enemy-directions [entities]

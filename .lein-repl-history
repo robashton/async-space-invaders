@@ -63,3 +63,7 @@ exit
 (doc reduce)
 (doc some)
 (* 36 36)
+(doc first)
+(doc some)
+(map-indexed #(println %1 %2) [ "one" "two" "three" ])
+(map-indexed #(do (println %1 %2) 0) [ "one" "two" "three" ])
