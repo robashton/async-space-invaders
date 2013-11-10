@@ -14,15 +14,14 @@
   (set! (. ctx -fillStyle) "#FFF")
   (.fillRect ctx 0 0 640 480))
 
-(defn draw-entity [ctx {:keys [bounds color]}]
+(defn draw-entity [ctx {:keys [x y w h color]}]
   (set! (. ctx -fillStyle) color)
-  (.fillRect ctx (:x bounds) (:y bounds) (:w bounds) (:h bounds)))
+  (.fillRect ctx x y w h color))
 
 (defn rect [x y w h] { :x x :y y :w w :h h})
 
 (defn entity [id rect color]
-  (-> {}
-    (assoc :bounds rect)
+  (-> rect
     (assoc :color color)
     (assoc :id id)))
 
