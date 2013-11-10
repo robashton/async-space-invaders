@@ -20,18 +20,23 @@
   (.fillRect ctx x y w h color))
 
 (defn rect [x y w h] { :x x :y y :w w :h h})
+(defn rect-right [rect] (+ (:x rect) (:w rect)))
+(defn rect-bottom [rect] (+ (:y rect) (:h rect)))
 
 (defn entity [id rect color]
   (-> rect
     (assoc :color color)
     (assoc :id id)))
+
 (defn enemy [x y w h]
   (-> (entity (str "enemy" x y) (rect x y w h) "#FF0")
     (assoc :type :enemy)
     (assoc :velx 1)))
+
 (defn player [x y w h]
   (-> (entity :player (rect x y w h) "#F00")
    (assoc :type :player)))
+
 (defn bullet [x y w h]
   (-> (entity (str "bullet" (rand)) (rect x y w h) "#000")
     (assoc :type :bullet)
@@ -77,16 +82,43 @@
   (apply min (map :x enemies)))
 
 (defn max-enemy-right [enemies]
-  (apply max (map #(+ (:x %1) (:w %1)) enemies)))
+  (apply max (map rect-right enemies)))
 
 (defn enemies-at-border [enemies]
   (or (<= 640 (max-enemy-right enemies)) 
       (>= 0 (min-enemy-left enemies))))
 
+(defn destroy-enemy [id {:keys [entities] :as scene}]
+  (assoc scene :entities (dissoc entities id)))
+
+(defn destroy-bullet [id {:keys [entities] :as scene}]
+  (assoc scene :entities (dissoc entities id)))
+
 (defn next-enemy-level [e]
   (-> e
     (update-in [:velx] (partial - 0))
     (update-in [:y] (partial + 10))))
+
+(defn collisions-in [entities]
+  (filter 
+      boolean
+      (for [[_ one] entities
+            [_ two] entities]
+           (cond
+             (= one two) nil
+             (< (rect-right one) (:x two)) nil
+             (> (:x one) (rect-right two)) nil
+             (< (rect-bottom one) (:y two)) nil
+             (> (:y one) (rect-bottom two)) nil
+             :else [one two])))) 
+
+(defn check-collisions [{:keys [entities] :as scene}]
+  (doseq [[one two] (collisions-in entities)]
+      (case [(:type one) (:type two)]
+        [:bullet :enemy] (put! comms (partial destroy-enemy (:id two)))
+        [:enemy :bullet] (put! comms (partial destroy-bullet (:id two)))
+        nil))
+  scene)
 
 (defn check-enemy-directions [{:keys [entities] :as scene}]
   (if (enemies-at-border (filter enemy? (map val entities)))
@@ -96,16 +128,18 @@
 (defn tick [{:keys [entities] :as scene}]
   (-> scene 
     (assoc :entities (into entities (for [[i e] entities] [i (apply-physics e)])))
-    (check-enemy-directions)))
+    (check-enemy-directions)
+    (check-collisions)))
 
 (defn render [ctx {:keys [entities]}]
   (clear ctx)
   (doseq [e (map val entities)] (draw-entity ctx e)))
 
 (defn game []
-  (go (loop [scene (initial-scene)]
-        (if-let [action (<! comms)]
-          (recur (or (action scene) scene))))))
+  (go 
+    (loop [scene (initial-scene)]
+      (if-let [action (<! comms)]
+        (recur (or (action scene) scene))))))
 
 (defn on-key-down [e]
   (case (. e -keyCode)
