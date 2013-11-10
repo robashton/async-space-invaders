@@ -19,28 +19,33 @@
   (set! (. ctx -fillStyle) color)
   (.fillRect ctx x y w h color))
 
-(defn rect [x y w h] { :x x :y y :w w :h h})
 (defn rect-right [rect] (+ (:x rect) (:w rect)))
 (defn rect-bottom [rect] (+ (:y rect) (:h rect)))
 
-(defn entity [id rect color]
-  (-> rect
-    (assoc :color color)
-    (assoc :id id)))
+(defn entity [id & opts]
+  (-> {
+        :render true
+        :color "#F0F" 
+        :x 0 :y 0 :w 0 :h 0
+        :velx 0 :vely 0 }
+      (merge (apply hash-map opts))
+      (assoc :id id)))
 
 (defn enemy [x y w h]
-  (-> (entity (str "enemy" x y) (rect x y w h) "#FF0")
-    (assoc :type :enemy)
-    (assoc :velx 1)))
+  (entity (str "enemy" x y)
+          :x x :y y :w w :h w :color "#FF0"
+          :type :enemy
+          :velx 1))
 
 (defn player [x y w h]
-  (-> (entity :player (rect x y w h) "#F00")
-   (assoc :type :player)))
+  (entity :player 
+          :x x :y y :w w :h h :color "#F00"
+          :type :player))
 
 (defn bullet [x y w h]
-  (-> (entity (str "bullet" (rand)) (rect x y w h) "#000")
-    (assoc :type :bullet)
-    (assoc :vely -5)))
+  (entity (str "bullet" (rand))
+          :x x :y y :w w :h h :color "#000"
+          :type :bullet :vely -5))
 
 (defn apply-physics [entity]
   (-> entity
@@ -74,8 +79,7 @@
 
 (defn initial-scene []
   (into {} (for [e (conj (initial-enemies)
-                         (player 200 430 20 20))] [(:id e) e]))
-                         (firing-guard))
+                         (player 200 430 20 20))] [(:id e) e])))
 
 (defn min-enemy-left [enemies]
   (apply min (map :x enemies)))
@@ -125,6 +129,7 @@
     entities))
 
 (defn tick [entities]
+  entities
   (-> entities 
     (into (for [[i e] entities] [i (apply-physics e)])) 
     (check-enemy-directions)
@@ -132,7 +137,7 @@
 
 (defn render [ctx entities]
   (clear ctx)
-  (doseq [e (map val entities)] (draw-entity ctx e)))
+  (doseq [e (filter :render (map val entities))] (draw-entity ctx e)))
 
 (defn game []
   (go 
