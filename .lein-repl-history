@@ -41,3 +41,5 @@ e)
 (doseq [e (map val entities)] tick e))
 (doseq [e (map val entities)] 
 (doseq [e (map val entities)] (tick e)) 
+(map #(assoc %1 2 (tick (val %1))) entities)
+(map #(assoc %1 1 (tick (val %1))) entities)

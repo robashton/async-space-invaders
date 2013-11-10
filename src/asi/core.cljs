@@ -26,6 +26,9 @@
     (assoc :color color)
     (assoc :id id)))
 
+(defn apply-physics [entity]
+  (update-in entity [:x] #(+ %1 (:velx entity))))
+
 (defn enemy [x y w h]
   (entity (str "enemy" x y) (rect x y w h) "#FF0"))
 
@@ -50,7 +53,7 @@
                         (player 200 430 20 20))] [(:id e) e])) })
 
 (defn tick [{:keys [entities] :as scene}]
-  (assoc scene :entities (map #(assoc %1 2 (tick (val %1))) entities)))
+  (assoc scene :entities (into entities (for [[i e] entities] [i (apply-physics e)]))))
 
 (defn render [ctx {:keys [entities]}]
   (clear ctx)
@@ -66,13 +69,15 @@
   (fn [e] 
     (case (. e -keyCode)
       37 (put! commands player-left)
-      39 (put! commands player-right))))
+      39 (put! commands player-right)
+      nil)))
 
 (defn on-key-up [commands]
   (fn [e] 
     (case (. e -keyCode)
       37 (put! commands player-halt)
-      39 (put! commands player-halt))))
+      39 (put! commands player-halt)
+      nil)))
 
 (defn hook-input-events [commands]
   (.addEventListener js/document "keydown" (on-key-down commands))
@@ -83,7 +88,7 @@
         commands (chan)
         instance (game commands ctx)]
    (hook-input-events commands)
-   (js/setInterval (put! commands tick) (/ 1000.0 30.0)) 
-    (js/setInterval #(put! commands (partial render ctx)) (/ 1000.0 30.0))))
+   (js/setInterval #(put! commands tick) (/ 1000.0 30.0)) 
+   (js/setInterval #(put! commands (partial render ctx)) (/ 1000.0 30.0))))
 
 (start)
