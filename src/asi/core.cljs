@@ -1,6 +1,5 @@
 (ns asi.core
-  (:require [cljs.core.async :as async
-             :refer [<! >! chan close! sliding-buffer put! alts! timeout]])
+  (:require [cljs.core.async :as async :refer [<! >! chan put!]])
   (:require-macros [cljs.core.async.macros :as m :refer [go alt!]]))
 
 (defn context 
@@ -29,10 +28,15 @@
   (update-in entity [:x] #(+ %1 (:velx entity))))
 
 (defn enemy [x y w h]
-  (entity (str "enemy" x y) (rect x y w h) "#FF0"))
+  (-> (entity (str "enemy" x y) (rect x y w h) "#FF0"))
+    (assoc :type :enemy))
 
 (defn player [x y w h]
-  (entity :player (rect x y w h) "#F00"))
+  (-> (entity :player (rect x y w h) "#F00"))
+  (assoc :type :player))
+
+(defn player? [e] (= :player (:type e)))
+(defn enemy? [e] (= :enemy (:type e)))
 
 (defn player-left [scene]
   (assoc-in scene [:entities :player :velx] -1))
@@ -42,6 +46,11 @@
 
 (defn player-halt [scene]
   (assoc-in scene [:entities :player :velx] 0))
+
+(defn enemy-direction [direction {:keys [entities] :as scene}]
+  (assoc scene :entities 
+      (into entities (for [[i e] (filter enemy? entities)] 
+                       (assoc e :velx direction)))))
 
 (defn initial-scene
   [out ctx]
