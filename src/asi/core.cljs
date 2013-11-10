@@ -59,13 +59,23 @@
                 (for [e (conj (initial-enemies)
                         (player 200 430 20 20))] [(:id e) e])) })
 
-(defn check-enemy-directions [{:keys [entities] scene}]
-  (let [enemies (filter enemy? (map val entities))
-        minx (left-most enemies)
-        maxs (right-most enemies)]
+(defn min-enemy-left [enemies]
+  (apply min (map :x enemies)))
 
+(defn max-enemy-right [enemies]
+  (apply max (map #(+ (:x %1) (:w %1)) enemies)))
 
-    ))
+(defn enemies-at-border [enemies]
+  (or (<= 640 (max-enemy-right enemies)) 
+      (>= 0 (min-enemy-left enemies))))
+
+(defn next-enemy-level [e]
+  (update-in e [:velx] (partial - 0)))
+
+(defn check-enemy-directions [{:keys [entities] :as scene}]
+  (if (enemies-at-border (filter enemy? (map val entities)))
+    (assoc scene :entities (into entities (for [[i e] entities] [i (next-enemy-level e)])))
+    scene))
 
 (defn tick [{:keys [entities] :as scene}]
   (-> scene 

@@ -46,3 +46,5 @@ e)
 (into { :id "foo" } [:blah "bar"])
 (into { :id "foo" } [[:blah "bar"]])
 (doc filter)
+exit
+(- 0 10)
