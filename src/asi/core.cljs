@@ -3,6 +3,8 @@
              :refer [<! >! chan close! sliding-buffer put! alts! timeout]])
   (:require-macros [cljs.core.async.macros :as m :refer [go alt!]]))
 
+
+;; TODO: Can I channel events to a separate rendering system? (three js)
 (defn context 
   [width height]
   (let [target (.getElementById js/document "target")]
